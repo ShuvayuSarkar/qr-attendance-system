@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AttendanceForm from '@/components/attendance-form'
-import AttendanceFormMobile from '@/components/attendace-form-mobile'
+import AttendanceFormMobile from '@/components/attendance-form-mobile'
 import SuccessPage from '@/components/success-page'
 import { Toaster } from '@/components/ui/toaster'
 

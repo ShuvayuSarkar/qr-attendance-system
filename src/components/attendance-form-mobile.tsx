@@ -51,6 +51,7 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
       organizationName: '',
     },
   })
+  
   // Set mounted state and initialize time only on client
   useEffect(() => {
     setIsMounted(true)
@@ -198,11 +199,13 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
     } finally {
       setIsSubmitting(false)
     }
-  }  // Don't render time until component is mounted
+  }
+
+  // Don't render time until component is mounted
   if (!isMounted) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50 relative">
-        {/* Top Branding Section - 35% with desktop-like styling */}
+      <div className="min-h-screen flex flex-col relative">
+        {/* Top Branding Section - 35% with exact desktop styling */}
         <div className="h-[35vh] bg-gray-200 relative overflow-hidden flex items-center justify-center">
           {/* Main Content */}
           <div 
@@ -230,37 +233,37 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
             </div>
           </div>
 
-          {/* Floating Abstract Shapes - exact match to desktop */}
+          {/* Floating Abstract Shapes - exact desktop match */}
           <div
-            className="absolute top-1/2 left-1/4 w-16 h-16 bg-purple-500 rounded-full opacity-60 filter blur-3xl"
+            className="absolute top-1/2 left-1/4 w-32 h-32 bg-purple-500 rounded-full opacity-60 filter blur-3xl"
             style={{
               animation: 'float1 4s ease-in-out infinite alternate'
             }}
           />
 
           <div
-            className="absolute top-1/2 left-1/4 w-16 h-16 bg-pink-800 rounded-full opacity-60 filter blur-3xl"
+            className="absolute top-1/2 left-1/4 w-32 h-32 bg-pink-800 rounded-full opacity-60 filter blur-3xl"
             style={{
               animation: 'float2 4s ease-in-out infinite alternate'
             }}
           />
 
           <div
-            className="absolute top-1/4 left-1/3 w-12 h-12 bg-indigo-900 rounded-full opacity-50 filter blur-2xl"
+            className="absolute top-1/4 left-1/3 w-24 h-24 bg-indigo-900 rounded-full opacity-50 filter blur-2xl"
             style={{
               animation: 'float3 5s ease-in-out infinite alternate'
             }}
           />
 
           <div
-            className="absolute top-1/3 left-1/2 w-20 h-20 bg-purple-400 rounded-full opacity-70 filter blur-3xl"
+            className="absolute top-1/3 left-1/2 w-40 h-40 bg-purple-400 rounded-full opacity-70 filter blur-3xl"
             style={{
               animation: 'float4 6s ease-in-out infinite alternate'
             }}
           />
 
           <div
-            className="absolute top-1/2 right-1/4 w-14 h-14 bg-pink-500 rounded-full opacity-40 filter blur-xl"
+            className="absolute top-1/2 right-1/4 w-28 h-28 bg-pink-500 rounded-full opacity-40 filter blur-xl"
             style={{
               animation: 'float5 3s ease-in-out infinite alternate'
             }}
@@ -271,7 +274,7 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
         <div className="flex-1 p-4 flex items-start justify-center pt-6 bg-white">
           <Card className="w-full max-w-md shadow-xl">
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-xl font-bold text-gray-800">Event Attendance</CardTitle>
+              <CardTitle className="text-xl font-bold">Event Attendance</CardTitle>
               <CardDescription className="text-sm">
                 Please enter your details to register your attendance
               </CardDescription>
@@ -283,9 +286,11 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
         </div>
       </div>
     )
-  }  return (
-    <div className="min-h-screen flex flex-col bg-gray-50 relative">
-      {/* Top Branding Section - 35% with desktop-like styling */}
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col relative">
+      {/* Top Branding Section - 35% with exact desktop styling */}
       <div className="h-[35vh] bg-gray-200 relative overflow-hidden flex items-center justify-center">
         {/* Main Content */}
         <div 
@@ -313,37 +318,37 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
           </div>
         </div>
 
-        {/* Floating Abstract Shapes - exact match to desktop */}
+        {/* Floating Abstract Shapes - exact desktop match */}
         <div
-          className="absolute top-1/2 left-1/4 w-16 h-16 bg-purple-500 rounded-full opacity-60 filter blur-3xl"
+          className="absolute top-1/2 left-1/4 w-32 h-32 bg-purple-500 rounded-full opacity-60 filter blur-3xl"
           style={{
             animation: 'float1 4s ease-in-out infinite alternate'
           }}
         />
 
         <div
-          className="absolute top-1/2 left-1/4 w-16 h-16 bg-pink-800 rounded-full opacity-60 filter blur-3xl"
+          className="absolute top-1/2 left-1/4 w-32 h-32 bg-pink-800 rounded-full opacity-60 filter blur-3xl"
           style={{
             animation: 'float2 4s ease-in-out infinite alternate'
           }}
         />
 
         <div
-          className="absolute top-1/4 left-1/3 w-12 h-12 bg-indigo-900 rounded-full opacity-50 filter blur-2xl"
+          className="absolute top-1/4 left-1/3 w-24 h-24 bg-indigo-900 rounded-full opacity-50 filter blur-2xl"
           style={{
             animation: 'float3 5s ease-in-out infinite alternate'
           }}
         />
 
         <div
-          className="absolute top-1/3 left-1/2 w-20 h-20 bg-purple-400 rounded-full opacity-70 filter blur-3xl"
+          className="absolute top-1/3 left-1/2 w-40 h-40 bg-purple-400 rounded-full opacity-70 filter blur-3xl"
           style={{
             animation: 'float4 6s ease-in-out infinite alternate'
           }}
         />
 
         <div
-          className="absolute top-1/2 right-1/4 w-14 h-14 bg-pink-500 rounded-full opacity-40 filter blur-xl"
+          className="absolute top-1/2 right-1/4 w-28 h-28 bg-pink-500 rounded-full opacity-40 filter blur-xl"
           style={{
             animation: 'float5 3s ease-in-out infinite alternate'
           }}
@@ -354,7 +359,7 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
       <div className="flex-1 p-4 flex items-start justify-center pt-6 bg-white">
         <Card className="w-full max-w-md shadow-xl">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl font-bold text-gray-800">Event Attendance</CardTitle>
+            <CardTitle className="text-xl font-bold">Event Attendance</CardTitle>
             <CardDescription className="text-sm">
               Please enter your details to register your attendance
             </CardDescription>
@@ -387,7 +392,7 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
                     {isVerifyingCode ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : isEventCodeVerified ? (
-                      "✓"
+                      "Verified"
                     ) : (
                       "Verify"
                     )}
@@ -421,7 +426,7 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
                 <div className="space-y-2">
                   <Label htmlFor="visitorName" className="flex items-center space-x-2 text-sm">
                     <User className="w-4 h-4" />
-                    <span>Full Name</span>
+                    <span>Visitor Name</span>
                   </Label>
                   <Input
                     id="visitorName"
@@ -438,7 +443,7 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
                 <div className="space-y-2">
                   <Label htmlFor="organizationName" className="flex items-center space-x-2 text-sm">
                     <Building className="w-4 h-4" />
-                    <span>Organization / Shop</span>
+                    <span>Organization / Shop Name</span>
                   </Label>
                   <Input
                     id="organizationName"
@@ -457,20 +462,20 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
               <div className="flex items-center justify-center text-xs text-gray-500 space-x-2 py-2">
                 <MapPin className="w-3 h-3" />
                 <span>
-                  {userLocation ? 'Location captured ✓' : 'Capturing location...'}
+                  {userLocation ? 'Location captured' : 'Capturing location...'}
                 </span>
               </div>
 
-              {/* Submit button */}
+              {/* Submit button - matching desktop style */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+                className="w-full bg-blue-600 text-white hover:bg-blue-700"
                 disabled={!isEventCodeVerified || isSubmitting || !userLocation}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Submitting...
+                    Submitting Attendance...
                   </>
                 ) : (
                   'Submit Attendance'
