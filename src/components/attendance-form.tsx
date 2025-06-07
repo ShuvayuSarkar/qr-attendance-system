@@ -10,7 +10,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
-import { Loader2, MapPin, Clock, User, Building, Phone, Hash } from 'lucide-react'
+import { Loader2, MapPin, Clock, User, Building, Phone, Hash, AlertTriangle, CheckCircle } from 'lucide-react'
+import { 
+  getSessionId, 
+  storeRegistration, 
+  isPhoneRegistered, 
+  isSessionRegistered, 
+  cleanupOldRegistrations,
+  RegistrationRecord 
+} from '@/lib/registration-storage'
 
 // Form validation schema
 const attendanceSchema = z.object({
@@ -41,6 +49,8 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isOnLeftSide, setIsOnLeftSide] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
+  const [sessionRegistration, setSessionRegistration] = useState<RegistrationRecord | null>(null)
   const blobRef = useRef<HTMLDivElement | null>(null)
 
   const form = useForm<AttendanceFormData>({
@@ -50,8 +60,12 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
       mobileNumber: '',
       visitorName: '',
       organizationName: '',
-    },
-  })
+    },  })
+
+  // Clean up old registrations on component mount
+  useEffect(() => {
+    cleanupOldRegistrations()
+  }, [])
 
   // Blob movement effect
   useEffect(() => {
@@ -105,8 +119,23 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
           })
         }
       )
+    }  }, [])
+
+  // Function to check for phone number duplicates
+  const checkPhoneDuplicate = (phoneNumber: string) => {
+    const eventCode = form.getValues('eventCode')
+    if (!eventCode || !phoneNumber || phoneNumber.length < 10) {
+      setDuplicateWarning(null)
+      return
     }
-  }, [])
+
+    const existingReg = isPhoneRegistered(eventCode, phoneNumber)
+    if (existingReg) {
+      setDuplicateWarning(`This phone number is already registered for this event. Token: ${existingReg.token}`)
+    } else {
+      setDuplicateWarning(null)
+    }
+  }
 
   const verifyEventCode = async () => {
     const eventCode = form.getValues('eventCode')
@@ -119,7 +148,18 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
       return
     }
 
-    setIsVerifyingCode(true)
+    // Check if this browser session has already registered for this event
+    const existingSessionReg = isSessionRegistered(eventCode)
+    if (existingSessionReg) {
+      setSessionRegistration(existingSessionReg)
+      toast({
+        title: "Already Registered",
+        description: `This browser has already registered for this event. Token: ${existingSessionReg.token}`,
+        variant: "destructive"
+      })
+      return
+    }    setIsVerifyingCode(true)
+    setDuplicateWarning(null)
     
     try {
       const response = await fetch('/api/verify-event', {
@@ -128,20 +168,20 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ eventcode: eventCode }),
-      });
+      });      const result = await response.json();
 
-      const result = await response.json();
-
-      if (response.ok && result.status === 'success') {
+      if (response.ok && result.data && result.data[0] && result.data[0].status === 'success') {
         setIsEventCodeVerified(true)
         toast({
           title: "Event Code Verified",
-          description: result.message || "Please fill in your details below.",
+          description: result.data[0].message || "Please fill in your details below.",
         })
       } else {
+        setIsEventCodeVerified(false);
+        const errorMessage = result.data && result.data[0] ? result.data[0].message : result.message;
         toast({
-          title: "Event Code Verification Failed",
-          description: result.message || "Please check the event code and try again.",
+          title: "Event Code Issue",
+          description: errorMessage || "Please check the event code and try again.",
           variant: "destructive"
         })
       }
@@ -211,27 +251,41 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(apiPayload),
-      });
+      });      const apiResponse = await response.json();
 
-      const apiResponse = await response.json();
+      // Standardize token extraction, matching mobile component
+      const token = apiResponse.tokenno || apiResponse.token || (apiResponse.data && Array.isArray(apiResponse.data) && apiResponse.data.length > 0 && (apiResponse.data[0].tokenno || apiResponse.data[0].token));
 
-      // A successful SAP response might have a "tokenno" field.
-      // The backend /api/submit-attendance returns SAP's response directly.
-      const token = apiResponse.tokenno || apiResponse.token; // Adapt if token field name is different from SAP
+      if (response.ok && token) {
+        // Store registration in browser localStorage for duplicate prevention
+        const registrationRecord: RegistrationRecord = {
+          eventCode: formData.eventCode,
+          phoneNumber: formData.mobileNumber,
+          name: formData.visitorName,
+          timestamp: submissionTimestamp,
+          token: token,
+          sessionId: getSessionId()
+        };
+        storeRegistration(registrationRecord);
 
-      if (response.ok && token) { 
+        toast({
+          title: "Attendance Submitted!",
+          description: apiResponse.message || `Your token is ${token}.`,
+        });
+
         await onSubmit({
           token: token,
           eventCode: formData.eventCode,
           visitorName: formData.visitorName,
           timestamp: submissionTimestamp,
         });
-        // form.reset(); // Consider if form should reset after successful submission
-        // setIsEventCodeVerified(false); // Consider if event code verification should be reset
+        form.reset();
+        setIsEventCodeVerified(false);
       } else {
+        const errorMessage = apiResponse.message || (apiResponse.data && Array.isArray(apiResponse.data) && apiResponse.data.length > 0 && apiResponse.data[0].message) || "Submission failed. Please check details.";
         toast({
           title: "Submission Failed",
-          description: apiResponse.message || "Could not submit attendance. Please check your details and try again.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -322,9 +376,18 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
             <CardDescription>
               Please enter your details to register your attendance
             </CardDescription>
-          </CardHeader>
+          </CardHeader>          <CardContent className="space-y-6">
+            {/* Session Registration Warning */}
+            {sessionRegistration && (
+              <div className="flex items-center space-x-2 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <CheckCircle className="w-5 h-5 text-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Already Registered</p>
+                  <p className="text-xs text-blue-600">Token: {sessionRegistration.token}</p>
+                </div>
+              </div>
+            )}
 
-          <CardContent className="space-y-6">
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
               
               {/* Event Code Field */}
@@ -368,16 +431,25 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
                   <Label htmlFor="mobileNumber" className="flex items-center space-x-2">
                     <Phone className="w-4 h-4" />
                     <span>Mobile Number</span>
-                  </Label>
-                  <Input
+                  </Label>                  <Input
                     id="mobileNumber"
                     type="tel"
                     placeholder="Enter your mobile number"
                     {...form.register('mobileNumber')}
                     disabled={!isEventCodeVerified}
+                    onChange={(e) => {
+                      form.setValue('mobileNumber', e.target.value);
+                      checkPhoneDuplicate(e.target.value);
+                    }}
                   />
                   {form.formState.errors.mobileNumber && (
                     <p className="text-sm text-red-500">{form.formState.errors.mobileNumber.message}</p>
+                  )}
+                  {duplicateWarning && (
+                    <div className="flex items-center space-x-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                      <p className="text-sm text-yellow-800">{duplicateWarning}</p>
+                    </div>
                   )}
                 </div>
 

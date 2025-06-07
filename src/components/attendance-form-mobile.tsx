@@ -10,7 +10,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label' // Restored Label import
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
-import { Building, Clock, MapPin, Loader2, Hash, User, Phone } from 'lucide-react'
+import { Building, Clock, Smartphone, Users, MapPin, Loader2, QrCode, AlertTriangle, CheckCircle } from 'lucide-react'
+import { 
+  getSessionId, 
+  storeRegistration, 
+  isPhoneRegistered, 
+  isSessionRegistered, 
+  cleanupOldRegistrations,
+  RegistrationRecord 
+} from '@/lib/registration-storage'
 
 // Form validation schema
 const attendanceSchema = z.object({
@@ -42,6 +50,8 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [isMounted, setIsMounted] = useState(false)
   const [isInTopSection, setIsInTopSection] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
+  const [sessionRegistration, setSessionRegistration] = useState<RegistrationRecord | null>(null)
   const blobRef = useRef<HTMLDivElement | null>(null)
 
   const form = useForm<AttendanceFormData>({
@@ -57,6 +67,9 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
   useEffect(() => {
     setIsMounted(true)
     setCurrentTime(new Date())
+    
+    // Clean up old registrations on component mount
+    cleanupOldRegistrations()
   }, [])
 
   useEffect(() => {
@@ -120,7 +133,6 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
       )
     }
   }, [])
-
   const verifyEventCode = async () => {
     const eventCode = form.getValues('eventCode')
     if (!eventCode) {
@@ -132,7 +144,21 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
       return
     }
 
+    // Check if this browser session has already registered for this event
+    const existingSessionReg = isSessionRegistered(eventCode)
+    if (existingSessionReg) {
+      setSessionRegistration(existingSessionReg)
+      toast({
+        title: "Already Registered",
+        description: `This browser has already registered for this event. Token: ${existingSessionReg.token}`,
+        variant: "destructive"
+      })
+      return
+    }
+
     setIsVerifyingCode(true)
+    setDuplicateWarning(null)
+    
     try {
       const response = await fetch('/api/verify-event', {
         method: 'POST',
@@ -144,17 +170,18 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
 
       const result = await response.json();
 
-      if (response.ok && result.status === 'success') {
+      if (response.ok && result.data && result.data[0] && result.data[0].status === 'success') {
         setIsEventCodeVerified(true)
         toast({
           title: "Event Code Verified",
-          description: result.message || "Please fill in your details below.",
+          description: result.data[0].message || "Please fill in your details below.",
         })
       } else {
         setIsEventCodeVerified(false);
+        const errorMessage = result.data && result.data[0] ? result.data[0].message : result.message;
         toast({
-          title: "Invalid Event Code",
-          description: result.message || "Please check the event code and try again.",
+          title: "Event Code Issue",
+          description: errorMessage || "Please check the event code and try again.",
           variant: "destructive"
         })
       }
@@ -168,6 +195,22 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
       })
     } finally {
       setIsVerifyingCode(false)
+    }
+  }
+
+  // Function to check for phone number duplicates
+  const checkPhoneDuplicate = (phoneNumber: string) => {
+    const eventCode = form.getValues('eventCode')
+    if (!eventCode || !phoneNumber || phoneNumber.length < 10) {
+      setDuplicateWarning(null)
+      return
+    }
+
+    const existingReg = isPhoneRegistered(eventCode, phoneNumber)
+    if (existingReg) {
+      setDuplicateWarning(`This phone number is already registered for this event. Token: ${existingReg.token}`)
+    } else {
+      setDuplicateWarning(null)
     }
   }
 
@@ -224,12 +267,21 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
         body: JSON.stringify(apiPayload),
       });
 
-      const apiResponse = await response.json();
-      // Standardize token extraction, matching desktop component
+      const apiResponse = await response.json();      // Standardize token extraction, matching desktop component
       const token = apiResponse.tokenno || apiResponse.token || (apiResponse.data && Array.isArray(apiResponse.data) && apiResponse.data.length > 0 && (apiResponse.data[0].tokenno || apiResponse.data[0].token));
 
-
       if (response.ok && token) {
+        // Store registration in browser localStorage for duplicate prevention
+        const registrationRecord: RegistrationRecord = {
+          eventCode: formData.eventCode,
+          phoneNumber: formData.mobileNumber,
+          name: formData.visitorName,
+          timestamp: submissionTimestamp,
+          token: token,
+          sessionId: getSessionId()
+        };
+        storeRegistration(registrationRecord);
+
         toast({
           title: "Attendance Submitted!",
           description: apiResponse.message || `Your token is ${token}.`,
@@ -425,14 +477,23 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
             <CardDescription className="text-sm">
               Please enter your details to register your attendance
             </CardDescription>
-          </CardHeader>
+          </CardHeader>          <CardContent>
+            {/* Session Registration Warning */}
+            {sessionRegistration && (
+              <div className="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-md mb-4">
+                <CheckCircle className="w-4 h-4 text-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Already Registered</p>
+                  <p className="text-xs text-blue-600">Token: {sessionRegistration.token}</p>
+                </div>
+              </div>
+            )}
 
-          <CardContent>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
               {/* Event Code Field */}
               <div className="space-y-2">
                 <Label htmlFor="eventCode" className="flex items-center space-x-2 text-sm">
-                  <Hash className="w-4 h-4" />
+                  <QrCode className="w-4 h-4" />
                   <span>Event Code</span>
                 </Label>
                 <div className="flex space-x-2">
@@ -469,25 +530,34 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="mobileNumber" className="flex items-center space-x-2 text-sm">
-                    <Phone className="w-4 h-4" />
+                    <Smartphone className="w-4 h-4" />
                     <span>Mobile Number</span>
-                  </Label>
-                  <Input
+                  </Label>                  <Input
                     id="mobileNumber"
                     type="tel"
                     placeholder="Enter your mobile number"
                     {...form.register('mobileNumber')}
                     disabled={!isEventCodeVerified}
                     className="text-sm"
+                    onChange={(e) => {
+                      form.setValue('mobileNumber', e.target.value);
+                      checkPhoneDuplicate(e.target.value);
+                    }}
                   />
                   {form.formState.errors.mobileNumber && (
                     <p className="text-xs text-red-500">{form.formState.errors.mobileNumber.message}</p>
+                  )}
+                  {duplicateWarning && (
+                    <div className="flex items-center space-x-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <AlertTriangle className="w-3 h-3 text-yellow-600" />
+                      <p className="text-xs text-yellow-800">{duplicateWarning}</p>
+                    </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="visitorName" className="flex items-center space-x-2 text-sm">
-                    <User className="w-4 h-4" />
+                    <Users className="w-4 h-4" />
                     <span>Visitor Name</span>
                   </Label>
                   <Input
@@ -543,6 +613,14 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
                   'Submit Attendance'
                 )}
               </Button>
+
+              {/* Duplicate warning message */}
+              {duplicateWarning && (
+                <div className="text-sm text-red-600 mt-4 text-center">
+                  <AlertTriangle className="w-5 h-5 inline-block mr-1 -mt-1" />
+                  {duplicateWarning}
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
