@@ -22,14 +22,16 @@ const attendanceSchema = z.object({
 
 type AttendanceFormData = z.infer<typeof attendanceSchema>
 
+// Updated interface for data passed to onSubmit prop
+interface AttendanceFormSubmitData {
+  token: string;
+  eventCode: string;
+  visitorName: string;
+  timestamp: string;
+}
+
 interface AttendanceFormProps {
-  onSubmit: (data: AttendanceFormData & { 
-    timestamp: string;
-    ipAddress: string;
-    latitude: number;
-    longitude: number;
-    locationName: string;
-  }) => Promise<void>;
+  onSubmit: (data: AttendanceFormSubmitData) => Promise<void>;
 }
 
 export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
@@ -120,19 +122,34 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
     setIsVerifyingCode(true)
     
     try {
-      // TODO: Replace with actual API call to verify event code
-      await new Promise(resolve => setTimeout(resolve, 1500)) // Simulate API call
-      
-      // For demo purposes, accept any non-empty code
-      setIsEventCodeVerified(true)
-      toast({
-        title: "Event Code Verified",
-        description: "Please fill in your details below.",
-      })
+      const response = await fetch('/api/verify-event', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ eventcode: eventCode }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.status === 'success') {
+        setIsEventCodeVerified(true)
+        toast({
+          title: "Event Code Verified",
+          description: result.message || "Please fill in your details below.",
+        })
+      } else {
+        toast({
+          title: "Event Code Verification Failed",
+          description: result.message || "Please check the event code and try again.",
+          variant: "destructive"
+        })
+      }
     } catch (error) {
+      console.error('Error verifying event code:', error);
       toast({
-        title: "Invalid Event Code",
-        description: "Please check the event code and try again.",
+        title: "Verification Error",
+        description: "An unexpected error occurred during verification.",
         variant: "destructive"
       })
     } finally {
@@ -140,47 +157,93 @@ export default function AttendanceForm({ onSubmit }: AttendanceFormProps) {
     }
   }
 
-  const handleSubmit = async (data: AttendanceFormData) => {
+  const handleSubmit = async (formData: AttendanceFormData) => {
     if (!userLocation) {
       toast({
         title: "Location Required",
-        description: "Location access is required to complete attendance.",
-        variant: "destructive"
-      })
-      return
+        description: "Location access is required to submit attendance.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!isEventCodeVerified) {
+        toast({
+            title: "Event Code Not Verified",
+            description: "Please verify the event code first.",
+            variant: "destructive",
+        });
+        return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
+    let locationName = 'Unknown Location';
 
     try {
       // Get location name from coordinates
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation.latitude}&lon=${userLocation.longitude}`
-      )
-      const locationData = await response.json()
-      const locationName = locationData.display_name || 'Unknown Location'
+      try {
+        const nominatimResponse = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation.latitude}&lon=${userLocation.longitude}`
+        );
+        if (nominatimResponse.ok) {
+          const locationData = await nominatimResponse.json();
+          locationName = locationData.display_name || 'Unknown Location';
+        } else {
+          console.warn("Failed to fetch location name from Nominatim.");
+        }
+      } catch (e) {
+        console.warn("Error fetching location name:", e);
+      }
+      
+      const submissionTimestamp = new Date().toISOString();
 
-      // Get user's IP address (you might want to use a service for this)
-      const ipResponse = await fetch('https://api.ipify.org?format=json')
-      const ipData = await ipResponse.json()
+      const apiPayload = {
+        // apikey: "SUBMIT", // This will be handled by the API route
+        eventcode: formData.eventCode,
+        vstrname: formData.visitorName,
+        vstrnumb: formData.mobileNumber,
+        vstrfrom: formData.organizationName,
+        geoloc: locationName,
+        geolat: userLocation.latitude,
+        geolon: userLocation.longitude,
+      };
 
-      await onSubmit({
-        ...data,
-        timestamp: new Date().toISOString(),
-        ipAddress: ipData.ip,
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        locationName
-      })
+      const response = await fetch('/api/submit-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload),
+      });
 
+      const apiResponse = await response.json();
+
+      // A successful SAP response might have a "tokenno" field.
+      // The backend /api/submit-attendance returns SAP's response directly.
+      const token = apiResponse.tokenno || apiResponse.token; // Adapt if token field name is different from SAP
+
+      if (response.ok && token) { 
+        await onSubmit({
+          token: token,
+          eventCode: formData.eventCode,
+          visitorName: formData.visitorName,
+          timestamp: submissionTimestamp,
+        });
+        // form.reset(); // Consider if form should reset after successful submission
+        // setIsEventCodeVerified(false); // Consider if event code verification should be reset
+      } else {
+        toast({
+          title: "Submission Failed",
+          description: apiResponse.message || "Could not submit attendance. Please check your details and try again.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
+      console.error("Error submitting attendance:", error);
       toast({
-        title: "Submission Failed",
-        description: "Please try again later.",
-        variant: "destructive"
-      })
+        title: "Submission Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 

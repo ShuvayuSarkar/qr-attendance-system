@@ -4,13 +4,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
+import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label' // Restored Label import
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
-import { Loader2, MapPin, Clock, User, Building, Phone, Hash, Zap, Wrench } from 'lucide-react'
+import { Building, Clock, MapPin, Loader2, Hash, User, Phone } from 'lucide-react'
 
 // Form validation schema
 const attendanceSchema = z.object({
@@ -22,14 +22,16 @@ const attendanceSchema = z.object({
 
 type AttendanceFormData = z.infer<typeof attendanceSchema>
 
+// Interface for data passed to onSubmit prop, ensuring consistency
+interface AttendanceFormSubmitData {
+  token: string;
+  eventCode: string;
+  visitorName: string;
+  timestamp: string;
+}
+
 interface AttendanceFormProps {
-  onSubmit: (data: AttendanceFormData & { 
-    timestamp: string;
-    ipAddress: string;
-    latitude: number;
-    longitude: number;
-    locationName: string;
-  }) => Promise<void>;
+  onSubmit: (data: AttendanceFormSubmitData) => Promise<void>;
 }
 
 export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) {
@@ -37,8 +39,8 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
   const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null)
-  const [currentTime, setCurrentTime] = useState<Date | null>(null) // Start with null
-  const [isMounted, setIsMounted] = useState(false) // Track if component is mounted
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
   const [isInTopSection, setIsInTopSection] = useState(false)
   const blobRef = useRef<HTMLDivElement | null>(null)
 
@@ -52,49 +54,43 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
     },
   })
   
-  // Set mounted state and initialize time only on client
   useEffect(() => {
     setIsMounted(true)
     setCurrentTime(new Date())
   }, [])
 
-  // Blob movement effect for mobile - similar to desktop
   useEffect(() => {
     const moveBlob = (e: TouchEvent | MouseEvent) => {
       let clientX: number, clientY: number;
       
       if ('touches' in e) {
-        // Touch event
-        clientX = e.touches[0]?.clientX || 0;
-        clientY = e.touches[0]?.clientY || 0;
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
       } else {
-        // Mouse event
         clientX = e.clientX;
         clientY = e.clientY;
       }
 
-      // Check if the touch/mouse is in the top section (35% of screen height)
-      setIsInTopSection(clientY < window.innerHeight * 0.35);
+      const inTop = clientY < window.innerHeight * 0.35;
+      setIsInTopSection(inTop);
 
-      if (blobRef.current && isInTopSection) {
-        // Update blob position
-        blobRef.current.style.left = `${clientX - 48}px`;
-        blobRef.current.style.top = `${clientY - 48}px`;
+      if (blobRef.current && inTop) {
+        blobRef.current.animate(
+          { left: `${clientX}px`, top: `${clientY}px` },
+          { duration: 3000, fill: 'forwards' }
+        )
       }
     };
 
-    // Add both touch and mouse event listeners for mobile compatibility
     document.addEventListener('mousemove', moveBlob);
-    document.addEventListener('touchmove', moveBlob);
+    document.addEventListener('touchmove', moveBlob, { passive: true });
 
-    // Cleanup the event listeners on component unmount
     return () => {
       document.removeEventListener('mousemove', moveBlob);
       document.removeEventListener('touchmove', moveBlob);
     };
-  }, [isInTopSection]);
+  }, []); // Removed isInTopSection from dependency array
 
-  // Update current time every second - only after mounted
   useEffect(() => {
     if (!isMounted) return
 
@@ -104,22 +100,21 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
     return () => clearInterval(timer)
   }, [isMounted])
 
-  // Get user location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({
             latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            longitude: position.coords.longitude,
           })
         },
         (error) => {
           console.error('Error getting location:', error)
           toast({
-            title: "Location Access Required",
-            description: "Please enable location access to complete attendance.",
-            variant: "destructive"
+            title: 'Location Error',
+            description: 'Could not retrieve your location. Please ensure location services are enabled.',
+            variant: 'destructive',
           })
         }
       )
@@ -139,17 +134,36 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
 
     setIsVerifyingCode(true)
     try {
-      // TODO: Replace with actual API call to verify event code
-      await new Promise(resolve => setTimeout(resolve, 1500)) // Simulate API call
-      setIsEventCodeVerified(true)
-      toast({
-        title: "Event Code Verified",
-        description: "Please fill in your details below.",
-      })
+      const response = await fetch('/api/verify-event', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ eventcode: eventCode }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.status === 'success') {
+        setIsEventCodeVerified(true)
+        toast({
+          title: "Event Code Verified",
+          description: result.message || "Please fill in your details below.",
+        })
+      } else {
+        setIsEventCodeVerified(false);
+        toast({
+          title: "Invalid Event Code",
+          description: result.message || "Please check the event code and try again.",
+          variant: "destructive"
+        })
+      }
     } catch (error) {
+      setIsEventCodeVerified(false);
+      console.error('Error verifying event code:', error);
       toast({
-        title: "Invalid Event Code",
-        description: "Please check the event code and try again.",
+        title: "Verification Error",
+        description: "An unexpected error occurred during verification.",
         variant: "destructive"
       })
     } finally {
@@ -157,47 +171,95 @@ export default function AttendanceFormMobile({ onSubmit }: AttendanceFormProps) 
     }
   }
 
-  const handleSubmit = async (data: AttendanceFormData) => {
+  const handleSubmit = async (formData: AttendanceFormData) => {
+    if (!isEventCodeVerified) {
+      toast({
+        title: "Event Code Not Verified",
+        description: "Please verify the event code first.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!userLocation) {
       toast({
         title: "Location Required",
-        description: "Location access is required to complete attendance.",
+        description: "Location access is required to complete attendance. Please enable location services and try again.",
         variant: "destructive"
       })
       return
     }
 
     setIsSubmitting(true)
+    let locationName = 'Unknown Location';
+    const submissionTimestamp = new Date().toISOString();
 
     try {
       // Get location name from coordinates
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation.latitude}&lon=${userLocation.longitude}`
-      )
-      const locationData = await response.json()
-      const locationName = locationData.display_name || 'Unknown Location'
+      try {
+        const locResponse = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation.latitude}&lon=${userLocation.longitude}`
+        )
+        if (locResponse.ok) {
+          const locationData = await locResponse.json()
+          locationName = locationData.display_name || 'Unknown Location'
+        }
+      } catch (e) {
+        console.error("Error fetching location name:", e);
+        // Continue with 'Unknown Location'
+      }
 
-      // Get user's IP address
-      const ipResponse = await fetch('https://api.ipify.org?format=json')
-      const ipData = await ipResponse.json()
+      const apiPayload = {
+        eventcode: formData.eventCode,
+        vstrname: formData.visitorName,
+        vstrnumb: formData.mobileNumber,
+        vstrfrom: formData.organizationName,
+        geoloc: locationName,
+        geolat: userLocation.latitude.toString(), // Ensure lat/lon are strings for SAP if needed
+        geolon: userLocation.longitude.toString(), // Ensure lat/lon are strings for SAP if needed
+      };
 
-      await onSubmit({
-        ...data,
-        timestamp: new Date().toISOString(),
-        ipAddress: ipData.ip,
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        locationName
-      })
+      const response = await fetch('/api/submit-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload),
+      });
 
+      const apiResponse = await response.json();
+      // Standardize token extraction, matching desktop component
+      const token = apiResponse.tokenno || apiResponse.token || (apiResponse.data && Array.isArray(apiResponse.data) && apiResponse.data.length > 0 && (apiResponse.data[0].tokenno || apiResponse.data[0].token));
+
+
+      if (response.ok && token) {
+        toast({
+          title: "Attendance Submitted!",
+          description: apiResponse.message || `Your token is ${token}.`,
+        });
+        // Call onSubmit prop with the correct data structure
+        await onSubmit({
+          token: token,
+          eventCode: formData.eventCode,
+          visitorName: formData.visitorName,
+          timestamp: submissionTimestamp,
+        });
+        form.reset();
+        setIsEventCodeVerified(false);
+      } else {
+        const errorMessage = apiResponse.message || (apiResponse.data && Array.isArray(apiResponse.data) && apiResponse.data.length > 0 && apiResponse.data[0].message) || "Submission failed. Please check details.";
+        toast({
+          title: "Submission Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
+      console.error("Error submitting attendance:", error);
       toast({
-        title: "Submission Failed",
-        description: "Please try again later.",
-        variant: "destructive"
-      })
+        title: "Submission Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 

@@ -8,23 +8,21 @@ import { Badge } from '@/components/ui/badge'
 import { CheckCircle, Copy, Clock, Hash, User, Calendar } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 
-interface SuccessData {
-  tokenNumber: string;
+// Updated interface: successData is no longer nested.
+// token is now directly tokenNumber for clarity with existing usage.
+interface SuccessPageProps {
+  token: string; // Changed from successData.tokenNumber
   eventCode: string;
   visitorName: string;
   timestamp: string;
 }
 
-interface SuccessPageProps {
-  successData: SuccessData;
-}
-
-export default function SuccessPage({ successData }: SuccessPageProps) {
+export default function SuccessPage({ token, eventCode, visitorName, timestamp }: SuccessPageProps) {
   const [copied, setCopied] = useState(false)
 
   const copyToken = async () => {
     try {
-      await navigator.clipboard.writeText(successData.tokenNumber)
+      await navigator.clipboard.writeText(token) // Use token directly
       setCopied(true)
       toast({
         title: "Token Copied!",
@@ -40,8 +38,8 @@ export default function SuccessPage({ successData }: SuccessPageProps) {
     }
   }
 
-  const formatDateTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('en-IN', {
+  const formatDateTime = (ts: string) => {
+    return new Date(ts).toLocaleString('en-IN', {
       dateStyle: 'full',
       timeStyle: 'medium'
     })
@@ -72,7 +70,7 @@ export default function SuccessPage({ successData }: SuccessPageProps) {
               <span className="text-lg font-semibold">Your Token Number</span>
             </div>
             <div className="text-3xl font-bold font-mono tracking-wider">
-              {successData.tokenNumber}
+              {token} {/* Use token directly */}
             </div>
             <Button
               onClick={copyToken}
@@ -95,58 +93,34 @@ export default function SuccessPage({ successData }: SuccessPageProps) {
                   <User className="w-5 h-5 text-gray-500" />
                   <span className="text-sm text-gray-600">Visitor Name</span>
                 </div>
-                <Badge variant="secondary">{successData.visitorName}</Badge>
+                <Badge variant="secondary">{visitorName}</Badge> {/* Use visitorName directly */}
               </div>
 
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <Hash className="w-5 h-5 text-gray-500" />
+                  <Calendar className="w-5 h-5 text-gray-500" />
                   <span className="text-sm text-gray-600">Event Code</span>
                 </div>
-                <Badge variant="secondary">{successData.eventCode}</Badge>
+                <Badge variant="outline">{eventCode}</Badge> {/* Use eventCode directly */}
               </div>
 
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <Clock className="w-5 h-5 text-gray-500" />
-                  <span className="text-sm text-gray-600">Timestamp</span>
+                  <span className="text-sm text-gray-600">Submission Time</span>
                 </div>
-                <span className="text-sm text-gray-800 text-right">
-                  {formatDateTime(successData.timestamp)}
-                </span>
+                <Badge variant="outline">{formatDateTime(timestamp)}</Badge> {/* Use timestamp directly */}
               </div>
             </div>
           </div>
 
-          {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-800 mb-2">Next Steps:</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Share your token number with the event host</li>
-              <li>• Keep this confirmation for your records</li>
-              <li>• Proceed to the event venue</li>
-            </ul>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              onClick={copyToken}
-              variant="outline"
-              className="flex-1"
-            >
-              <Copy className="w-4 h-4 mr-2" />
-              Copy Token Again
-            </Button>
-            <Button
-              onClick={() => window.location.href = '/'}
-              className="flex-1"
-            >
-              Submit Another Attendance
-            </Button>
+          <div className="text-center mt-8">
+            <p className="text-xs text-gray-500">
+              Thank you for your participation. Have a great event!
+            </p>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
