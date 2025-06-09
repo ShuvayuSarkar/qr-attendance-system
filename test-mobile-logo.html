@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Logo Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeInScale {
+            0% {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen flex flex-col relative">
+        <!-- Top Branding Section - 35% with exact desktop styling -->
+        <div class="h-[35vh] bg-gray-200 relative overflow-hidden flex items-center justify-center">
+            <!-- Main Content -->
+            <div 
+                class="text-center space-y-4 z-10 relative px-4"
+                style="animation: fadeInScale 1s ease-out"
+            >
+                <!-- Company Logo -->
+                <div class="flex items-center justify-center mb-6">
+                    <img 
+                        src="/brand-logo.png" 
+                        alt="Company Logo" 
+                        class="h-32 w-auto object-contain border-2 border-red-500 bg-yellow-100"
+                        onload="console.log('Logo loaded successfully')"
+                        onerror="console.log('Logo failed to load'); this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
+                    />
+                    <div class="w-32 h-32 bg-white rounded-full shadow-lg flex items-center justify-center mx-auto hidden">
+                        <svg class="w-16 h-16 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM12 15a1 1 0 110-2 1 1 0 010 2zm-4 0a1 1 0 110-2 1 1 0 010 2z"/>
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="space-y-3">
+                    <h1 class="text-2xl font-bold text-gray-800">Mobile Logo Test</h1>
+                    <p class="text-gray-600">Testing logo display in mobile-like environment</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rest of the page -->
+        <div class="flex-1 bg-white p-4">
+            <h2 class="text-lg font-semibold mb-2">Debug Information:</h2>
+            <div id="debug-info" class="text-sm text-gray-600 space-y-1">
+                <p>Logo URL: <span id="logo-url">/brand-logo.png</span></p>
+                <p>Page loaded at: <span id="load-time"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('load-time').textContent = new Date().toLocaleTimeString();
+        
+        // Test direct logo loading
+        const testImg = new Image();
+        testImg.onload = function() {
+            console.log('Direct image load test: SUCCESS');
+            console.log('Image dimensions:', this.naturalWidth, 'x', this.naturalHeight);
+        };
+        testImg.onerror = function() {
+            console.log('Direct image load test: FAILED');
+        };
+        testImg.src = '/brand-logo.png';
+        
+        // Check if we're running on localhost:3001
+        if (location.hostname === 'localhost' && location.port === '3001') {
+            console.log('Running on Next.js development server');
+        } else {
+            console.log('Not running on Next.js development server');
+        }
+    </script>
+</body>
+</html>

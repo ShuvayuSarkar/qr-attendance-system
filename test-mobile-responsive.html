@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Mobile Responsiveness Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .test-container {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        .mobile-simulator {
+            width: 375px;
+            height: 667px;
+            border: 2px solid #333;
+            border-radius: 20px;
+            margin: 0 auto;
+            overflow: hidden;
+            background: white;
+            position: relative;
+        }
+        .iframe-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            transform-origin: 0 0;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .overflow-warning {
+            color: red;
+            font-weight: bold;
+        }
+        .responsive-ok {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Mobile Responsiveness Test</h1>
+        <p>Testing the attendance form for horizontal overflow issues on mobile devices.</p>
+        
+        <div class="controls">
+            <button onclick="refreshFrame()">Refresh Form</button>
+            <button onclick="testScrolling()">Test Horizontal Scroll</button>
+            <button onclick="toggleSize()">Toggle Size</button>
+        </div>
+        
+        <div class="status" id="status">Loading...</div>
+        
+        <div class="mobile-simulator" id="simulator">
+            <div class="iframe-container">
+                <iframe id="testFrame" src="http://localhost:3001" onload="checkOverflow()"></iframe>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h3>Test Instructions:</h3>
+            <ol>
+                <li>Check if the form fits within the mobile viewport</li>
+                <li>Try scrolling horizontally - there should be no horizontal scroll</li>
+                <li>Test form interaction - all fields should be accessible</li>
+                <li>Verify that long text content wraps properly</li>
+                <li>Check different device sizes using the toggle button</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        let currentSize = 0;
+        const sizes = [
+            { width: 375, height: 667, name: "iPhone 8" },
+            { width: 390, height: 844, name: "iPhone 12" },
+            { width: 360, height: 640, name: "Galaxy S5" },
+            { width: 320, height: 568, name: "iPhone 5" }
+        ];
+        
+        function refreshFrame() {
+            document.getElementById('testFrame').src = document.getElementById('testFrame').src;
+        }
+        
+        function testScrolling() {
+            const iframe = document.getElementById('testFrame');
+            const status = document.getElementById('status');
+            
+            try {
+                // This is a basic test - in reality, you'd need to inspect the iframe content
+                status.innerHTML = 'Test: Try scrolling horizontally in the form above. If you can scroll horizontally, there\'s an overflow issue.';
+                status.className = 'status overflow-warning';
+                
+                setTimeout(() => {
+                    status.innerHTML = 'If no horizontal scrolling occurred, the responsive design is working correctly!';
+                    status.className = 'status responsive-ok';
+                }, 3000);
+            } catch (e) {
+                status.innerHTML = 'Manual test required: Check for horizontal scrolling in the form above.';
+                status.className = 'status';
+            }
+        }
+        
+        function toggleSize() {
+            currentSize = (currentSize + 1) % sizes.length;
+            const size = sizes[currentSize];
+            const simulator = document.getElementById('simulator');
+            
+            simulator.style.width = size.width + 'px';
+            simulator.style.height = size.height + 'px';
+            
+            document.getElementById('status').innerHTML = `Testing on ${size.name} (${size.width}x${size.height})`;
+            document.getElementById('status').className = 'status';
+        }
+        
+        function checkOverflow() {
+            const status = document.getElementById('status');
+            status.innerHTML = 'Form loaded. Test for horizontal overflow by trying to scroll sideways.';
+            status.className = 'status';
+        }
+        
+        // Initialize
+        window.onload = function() {
+            checkOverflow();
+        };
+    </script>
+</body>
+</html>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import AttendanceForm from '@/components/attendance-form'
-import AttendanceFormMobile from '@/components/attendance-form-mobile'
 import SuccessPage from '@/components/success-page'
 import { Toaster } from '@/components/ui/toaster'
 import { Loader2 } from 'lucide-react'
@@ -16,36 +15,20 @@ interface SuccessPageProps {
 }
 
 // Define the shape of data passed from form submission to handleAttendanceSubmit
-// This should match the onSubmit prop of AttendanceForm and AttendanceFormMobile
 interface FormSubmitData {
   token: string;
   eventCode: string;
   visitorName: string;
   timestamp: string;
-  // Add other fields if they are part of the data object passed to onSubmit
-  // For example, if the form components pass more data:
-  // mobileNumber?: string; 
-  // organizationName?: string;
-  // ipAddress?: string;
-  // latitude?: number;
-  // longitude?: number;
-  // locationName?: string;
 }
 
 export default function Page() {
-  const [isMobile, setIsMobile] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [submissionData, setSubmissionData] = useState<SuccessPageProps | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleAttendanceSubmit = async (data: FormSubmitData) => {
@@ -72,11 +55,7 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-gray-100">
       {!showSuccess ? (
-        isMobile ? (
-          <AttendanceFormMobile onSubmit={handleAttendanceSubmit as (data: FormSubmitData) => Promise<void>} />
-        ) : (
-          <AttendanceForm onSubmit={handleAttendanceSubmit as (data: FormSubmitData) => Promise<void>} />
-        )
+        <AttendanceForm onSubmit={handleAttendanceSubmit} />
       ) : (
         submissionData && (
           <SuccessPage 
